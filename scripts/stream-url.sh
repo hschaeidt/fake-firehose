@@ -60,7 +60,7 @@ do
         do
             now=`date +"%s"`
             next_import=$(echo "$last_line_imported + $throttle" | bc)
-            if [[ $line == *"uri"* ]] && [[ $now -gt $next_import ]]
+            if [[ $now -gt $next_import ]] && [[ $line == *"uri"* ]] && [[ $(echo "$line" | jq .language) == *"fr"* ]]
             then
                 url=`echo $line | jq .url| sed 's/\"//g'`
                 uri=`echo $line | jq .uri| sed 's/\"//g'`
