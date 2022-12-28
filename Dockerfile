@@ -7,7 +7,8 @@ RUN apt install -y \
     nano \
     vim \
     dnsutils \
-    wget
+    wget \
+    bc
 
 COPY ./scripts /scripts
 WORKDIR /scripts

@@ -21,8 +21,26 @@ do
 
     today=`date +"%Y%m%d"`
 
+    # Population size
+    n=$(curl -X "GET" "https://$host/api/v2/instance" --no-progress-meter | jq .usage.users.active_month)
+    # Z-score
+    z=1.96
+    # Error margin
+    e=0.05
+    # Standard deviation
+    p=0.5
+
+    # Not sure if this formula makes sense here as we are sampling posts and not population
+    # To make this formula work we would actually need an information like "posts per hour"
+    # and then sampling based on this information
+    sample_size=$(echo "($z^2*($p*(1-$p))/($e^2))/(1+($z*($p*(1-$p))/($e^2*$n)))" | bc -l)
+    throttle=$(echo "3600 / $sample_size" | bc)
+
+
     echo "[INFO] Starting to stream $url in 5 seconds"
     echo "[INFO] Archive status is $archive"
+    echo "[INFO] $host has $n users, sampling $sample_size posts per hour"
+    echo "[INFO] A sample will be taken every '$throttle' seconds"
 
     sleep 5s;
 
@@ -30,6 +48,7 @@ do
     if [[ $archive != "true" ]]
     then
     #Not in archive mode
+        last_line_imported=`date +"%s"`
 
         curl -X "GET" "$url" \
             --no-progress-meter | \
@@ -39,13 +58,19 @@ do
 
         while read -r line
         do
-            if [[ $line == *"uri"* ]]
+            now=`date +"%s"`
+            next_import=$(echo "$last_line_imported + $throttle" | bc)
+            if [[ $line == *"uri"* ]] && [[ $now -gt $next_import ]]
             then
-                url=`echo $line | jq .url| sed 's/\"//g'` 
+                url=`echo $line | jq .url| sed 's/\"//g'`
                 uri=`echo $line | jq .uri| sed 's/\"//g'`
 
                 echo "[INFO] Posting $url from $host"
                 echo $uri >> "/data/$today.uris.txt"
+                last_line_imported=$now
+            else
+                url=`echo $line | jq .url| sed 's/\"//g'`
+                echo "[DEBUG] Skipping $url from $host"
             fi
         done
     # In archive mode
